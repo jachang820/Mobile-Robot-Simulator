@@ -9,11 +9,11 @@ The simulation is for a general rectangular field with randomized compass and ra
 The simulator runs on a Javascript/JQuery front-end, where it performs all its calculations. We will eventually get to the point where we offload important calculations to a Django backend, which will then send and receive http requests to the actual robot.
 
 The simulator keeps an internal state based on the controls:
-UP - move forward
-DOWN - move backward
-LEFT - turn left (forward for right motor and backward for left)
-RIGHT - turn right (forward for left motor and backward for right)
-M - mirror the sensed state (currently, the state estimation can't tell the difference between top right and bottom left)
+* UP - move forward
+* DOWN - move backward
+* LEFT - turn left (forward for right motor and backward for left)
+* RIGHT - turn right (forward for left motor and backward for right)
+* M - mirror the sensed state (currently, the state estimation can't tell the difference between top right and bottom left)
 
 It also attempts to estimate state using only simulated sensor data. The sensors access the actual state but then inserts some Gaussian noise. The robot, then, only accesses the returned sensor data, inputs (with noise), and assumed dimensions and properties about the robot and constraints with the system.
 
