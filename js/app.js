@@ -212,6 +212,10 @@ class RobotState {
 		this.backLeft = {};
 		this.backRight = {};
 
+		this.intervals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+		this.interval_q_num = 0;
+		this.interval_q_size = 10;
+
 		// update parts positions at starting state
 		this.update_state();
 
@@ -231,6 +235,15 @@ class RobotState {
 		});
 
 		this.readState = function() {
+
+			var now = Date.now();
+			robotState.intervals[robotState.interval_q_num] = now - robotState.lastRead;
+			robotState.interval_q_num += 1;
+			if (robotState.interval_q_num == robotState.interval_q_size) { 
+				robotState.interval_q_num = 0;
+			}
+			robotState.lastRead = now;
+
 			// drive based on voltage input
 			robotState.state = RobotFrame.drive(robotState.state, 
 																					robotState.leftVoltageRatio, 
@@ -345,6 +358,9 @@ class Robot {
 		this.field = {};
 
 		this.calibrated = false;
+		this.intervals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+		this.interval_q_num = 0;
+		this.interval_q_size = 10;
 
 		// get reading from sensors
 		this.sense();
@@ -355,6 +371,14 @@ class Robot {
 		// sense and actuate every so often
 		var robot = this;
 		this.readState = function() {
+
+			var now = Date.now()
+			robot.intervals[robot.interval_q_num] = now - robot.lastRead;
+			robot.interval_q_num += 1;
+			if (robot.interval_q_num == robot.interval_q_size) { 
+				robot.interval_q_num = 0;
+			}
+			robot.lastRead = now;
 
 			if (robot.calibrated) {
 
@@ -455,7 +479,7 @@ class Robot {
 
 				// ensure that at least a full cycle is made
 				if (countCycles == 1 && robot.imu.mag > startingAngle ) {
-					//console.log("angle: " + angle + ", imu.mag: " + robot.imu.mag);
+					console.log("angle: " + angle + ", imu.mag: " + robot.imu.mag);
 					robot.actuate(0, 0, 0.0);
 					clearInterval(calibration_first_interval);
 					resolve(angleAtLeastDistance);
@@ -475,7 +499,7 @@ class Robot {
 				}
 
 
-			}, RobotState.CPU_PERIOD);
+			}, Robot.SENSE_PERIOD);
 
 		}).then(function(angleAtLeastDistance) {
 
@@ -649,6 +673,19 @@ class Robot {
 	}
 
 
+	fixSenseRatio() {
+
+		function add(a, b) { return a + b; }
+
+		// average time between each sense period over cpu period, since setInterval isn't accurate
+		var ratio = this.intervals.reduce(add, 0) / this.actual_state.intervals.reduce(add, 0);
+
+		// average number of times cpu interval has run in one sense interval
+		return ratio * RobotState.MAX_CM_IN_CPU_PERIOD;
+
+	}
+
+
 	actuate(leftSgn, rightSgn, cap) {
 
 		// maximum speed given
@@ -667,7 +704,7 @@ class Robot {
 
 		// update state estimation
 		this.state = RobotFrame.drive(this.state, this.leftVoltageRatio, this.rightVoltageRatio,
-																	Robot.MAX_CM_IN_SENSE_PERIOD);
+																	this.fixSenseRatio());
 
 		// check position based on geometric properties of lasers and angle
 		var cons = this.constrain_position();
