@@ -1,0 +1,38 @@
+
+#sandbox {
+	border: solid 2px black;
+	position: absolute;
+}
+
+#robot, #shadow {
+	position: absolute;
+	transform-origin: 50% 23.81%;
+}
+
+#shadow {
+	opacity: 0.5;
+	display: none;
+}
+
+#options {
+	display: none;
+}
+
+#status {
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	height: 60px;
+	width: 400px;
+	background-color: black;
+	font-family: Arial;
+	color: red;
+	font-size: 3em;
+	text-align: center;
+	display: none;
+}
+
+#constraint {
+	position: absolute;
+	background-color: red;
+}
