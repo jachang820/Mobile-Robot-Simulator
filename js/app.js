@@ -28,6 +28,40 @@ var leftVoltageRatio;
 var rightVoltageRatio;
 
 
+
+class MovingAverage {
+	
+	constructor(size) {
+
+		this.pointer = 0;
+		this.queue = [];
+		for (var i = 0; i < size; i += 1) {
+			this.queue[this.queue.length] = 0;
+		}
+		this.lastRead = Date.now();
+	}
+
+	set add(value) {
+		this.queue[this.pointer] = value;
+		this.pointer += 1;
+		if (this.pointer == this.queue.size) {
+			this.pointer = 0;
+		}
+		this.lastRead = Date.now();
+	}
+
+	get val() {
+		function add(a, b) { return a + b; }
+		return this.intervals.reduce(add, 0);
+	}
+
+	get last() {
+		return this.lastRead;
+	}
+
+}
+
+
 /**
  * A collection of properties and methods related to the robot frame of reference.
  * The robot knows these properties and methods since they are internal decisions made
@@ -154,9 +188,7 @@ class RobotState {
 		this.backLeft = {};
 		this.backRight = {};
 
-		this.intervals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-		this.interval_q_num = 0;
-		this.interval_q_size = 10;
+		this.intervals = new MovingAverage(10);
 
 		// update parts positions at starting state
 		this.update_state();
@@ -178,13 +210,7 @@ class RobotState {
 
 		this.readState = function() {
 
-			var now = Date.now();
-			robotState.intervals[robotState.interval_q_num] = now - robotState.lastRead;
-			robotState.interval_q_num += 1;
-			if (robotState.interval_q_num == robotState.interval_q_size) { 
-				robotState.interval_q_num = 0;
-			}
-			robotState.lastRead = now;
+			robotState.intervals.add(Date.now() - robotState.intervals.last);
 
 			// drive based on voltage input
 			robotState.state = robotState.drive(robotState.state, 
@@ -368,9 +394,7 @@ class Robot {
 		this.field = {};
 
 		this.calibrated = false;
-		this.intervals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-		this.interval_q_num = 0;
-		this.interval_q_size = 10;
+		this.intervals =  new MovingAverage(10);
 
 		// get reading from sensors
 		this.sense();
@@ -382,13 +406,7 @@ class Robot {
 		var robot = this;
 		this.readState = function() {
 
-			var now = Date.now()
-			robot.intervals[robot.interval_q_num] = now - robot.lastRead;
-			robot.interval_q_num += 1;
-			if (robot.interval_q_num == robot.interval_q_size) { 
-				robot.interval_q_num = 0;
-			}
-			robot.lastRead = now;
+			robot.intervals.add(Date.now() - robot.intervals.last);
 
 			if (robot.calibrated) {
 
@@ -479,9 +497,9 @@ class Robot {
 				// maintain 1 degree accuracy
 				maxVoltage = (robot.imu.mag - robot.prev.imu.mag > 0.017 ? maxVoltage - 0.001 : maxVoltage + 0.001);
 				if (maxVoltage < 0.01) maxVoltage = 0.01;
-				console.log(maxVoltage);
-
-				robot.actuate(-1, 1, maxVoltage);
+				
+				// go faster if entering an angle
+				robot.actuate(-1, 1, (robot.frontLaser.dist - 0.01 > robot.prev.frontLaser.dist ? 1 : maxVoltage));
 
 				// update sensor measurements
 				robot.sense();
@@ -782,13 +800,9 @@ class Robot {
 
 	fixSenseRatio() {
 
-		function add(a, b) { return a + b; }
-
-		// average time between each sense period over cpu period, since setInterval isn't accurate
-		var ratio = this.intervals.reduce(add, 0) / this.actual_state.intervals.reduce(add, 0);
-
 		// average number of times cpu interval has run in one sense interval
-		return ratio;
+		// since setInterval isn't accurate
+		return this.intervals.val / this.actual_state.intervals.val;
 
 	}
 
