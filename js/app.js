@@ -3,6 +3,7 @@ const SANDBOX_HEIGHT_RATIO = 0.95;
 const BIAS_ANGLE = 0.0;
 const LASER_MAX_RANGE = 150.0;
 const BUFFER = 9.0;
+const EPSILON = Math.PI/180; //1 degree
 
 // Pixel dimensions
 var docWidthPx;
@@ -128,65 +129,6 @@ class RobotFrame {
 		}
 	}
 
-
-		/**
-	 * Respond to motor voltage input and update robot state.
-	 */
-	static drive(state, leftVoltageRatio, rightVoltageRatio, period) {
-
-		// distance traveled by each wheel of robot in this timeslice
-		var leftArc = leftVoltageRatio * period;
-		var rightArc = rightVoltageRatio * period;
-
-		// change of angle
-		var d_theta = (rightArc - leftArc) / RobotFrame.AXLE_LENGTH;
-
-		// robot is moving straight
-		if (d_theta == 0) {
-
-			// let initial position be axis of rotation, and rotate new position about this axis
-			var rel_pos = {x: 0, y: leftArc };
-			var new_pos = RobotFrame.transform(rel_pos, state);
-
-			// update robot state
-			state.x = new_pos.x;
-			state.y = new_pos.y;
-
-		// robot is turning
-		} else {
-
-			// For short times, we assume there is negligible acceleration, such that each wheel moves evenly.
-			// Then, we can envision each turn as the wheels moving along the same arc angle along the
-			// circumference of concentric circles. 'r_center' is the radius from the center of these circles to
-			// the reference point at the center of the robot axle.
-			var r_center = RobotFrame.AXLE_LENGTH * ((Math.min(leftArc, rightArc) / Math.abs(rightArc - leftArc)) + 0.5);
-			
-			// The concentric circles center at the right side of the robot if the left wheel goes further, and
-			// vice versa. The right side is denoted by positive distance.
-			var coeff = (leftArc > rightArc ? 1 : -1);
-			
-			// Since 'r_center' extends from the axle, the center of the circles is a transformation moving sideways
-			// from robot frame. 'center' is the center of the concentric circles.
-			var rel_pos = {x: coeff * r_center, y: 0 };
-			var center = RobotFrame.transform(rel_pos, state);
-
-			// We let 'center' be the axis of rotation so we find the robot path along the circle circumference.
-			rel_pos = {x: state.x - center.x, y: state.y - center.y };
-			var d_state = {x: center.x, y: center.y, theta: d_theta };
-			var new_pos = RobotFrame.transform(rel_pos, d_state);
-
-			// update robot state
-			state.x = new_pos.x;
-			state.y = new_pos.y;
-			state.theta += d_theta;
-			state.theta = reduceAngle(state.theta);
-
-		}
-
-		return state;
-
-	}
-
 }
 
 
@@ -245,10 +187,10 @@ class RobotState {
 			robotState.lastRead = now;
 
 			// drive based on voltage input
-			robotState.state = RobotFrame.drive(robotState.state, 
-																					robotState.leftVoltageRatio, 
-																					robotState.rightVoltageRatio,
-																					RobotState.MAX_CM_IN_CPU_PERIOD);
+			robotState.state = robotState.drive(robotState.state, 
+															 robotState.leftVoltageRatio, 
+															 robotState.rightVoltageRatio,
+															 RobotState.MAX_CM_IN_CPU_PERIOD);
 
 			// update positions of robot parts
 			robotState.update_state();
@@ -329,6 +271,68 @@ class RobotState {
 
 	}
 
+
+
+	/**
+	 * Respond to motor voltage input and update robot state.
+	 */
+	drive(state, leftVoltageRatio, rightVoltageRatio, period) {
+
+		// distance traveled by each wheel of robot in this timeslice
+		var leftArc = leftVoltageRatio * period;
+		var rightArc = rightVoltageRatio * period;
+
+		// change of angle
+		var d_theta = (rightArc - leftArc) / RobotFrame.AXLE_LENGTH;
+
+		// robot is moving straight
+		if (d_theta == 0) {
+
+			// let initial position be axis of rotation, and rotate new position about this axis
+			var rel_pos = {x: 0, y: leftArc };
+			var new_pos = RobotFrame.transform(rel_pos, state);
+
+			// update robot state
+			state.x = new_pos.x;
+			state.y = new_pos.y;
+			state.d_theta = 0;
+
+		// robot is turning
+		} else {
+
+			// For short times, we assume there is negligible acceleration, such that each wheel moves evenly.
+			// Then, we can envision each turn as the wheels moving along the same arc angle along the
+			// circumference of concentric circles. 'r_center' is the radius from the center of these circles to
+			// the reference point at the center of the robot axle.
+			var r_center = RobotFrame.AXLE_LENGTH * ((Math.min(leftArc, rightArc) / Math.abs(rightArc - leftArc)) + 0.5);
+			
+			// The concentric circles center at the right side of the robot if the left wheel goes further, and
+			// vice versa. The right side is denoted by positive distance.
+			var coeff = (leftArc > rightArc ? 1 : -1);
+			
+			// Since 'r_center' extends from the axle, the center of the circles is a transformation moving sideways
+			// from robot frame. 'center' is the center of the concentric circles.
+			var rel_pos = {x: coeff * r_center, y: 0 };
+			var center = RobotFrame.transform(rel_pos, state);
+
+			// We let 'center' be the axis of rotation so we find the robot path along the circle circumference.
+			rel_pos = {x: state.x - center.x, y: state.y - center.y };
+			var d_state = {x: center.x, y: center.y, theta: d_theta };
+			var new_pos = RobotFrame.transform(rel_pos, d_state);
+
+			// update robot state
+			state.x = new_pos.x;
+			state.y = new_pos.y;
+			state.d_theta = d_theta;
+			state.theta += d_theta;
+			state.theta = reduceAngle(state.theta);
+
+		}
+
+		return state;
+
+	}
+
 }
 
 
@@ -337,6 +341,12 @@ class Robot {
 	constructor() {
 
 		this.actual_state = new RobotState();
+		this.prev = {
+			imu: { mag: 0, gyro: 0 },
+			frontLaser: { dist: 0 },
+			rightLaser: { dist: 0 },
+			state: {x: 0, y: 0, theta: 0 }
+		};
 
 		// default input
 		this.leftVoltageRatio = 0.0;
@@ -345,9 +355,9 @@ class Robot {
 		this.rightSignal = 0.0;
 
 		// parts of the robot that have tracked positions
-		this.imu = {};
-		this.frontLaser = {};
-		this.rightLaser = {};
+		this.imu = {mag: 0, gyro: 0 };
+		this.frontLaser = {dist: 0 };
+		this.rightLaser = {dist: 0 };
 		this.leftWheel = {};
 		this.rightWheel = {};
 		this.frontLeft = {};
@@ -385,14 +395,17 @@ class Robot {
 				// drive based on control input
 				robot.actuate();
 
-				// update parts positions at starting state
+				// update sensor measurements based on new position
+				robot.sense();
+
+				// estimate state
+				robot.estimate_state();
+
+				// update parts positions at state
 				robot.update_state();
 
 				// draw updated sensed position
 				$(document).trigger("drawEvent", [ robot.state, false ] );
-
-				// update sensor measurements based on new position
-				robot.sense();
 
 			}
 
@@ -446,8 +459,11 @@ class Robot {
 		var angleAtLeastDistance;
 		var front_measure_one;
 		var right_measure_one;
+		var front_measure_two;
+		var right_measure_two;
 		var countCycles = 0;
 		var trueAngleAtLeast;
+		var maxVoltage = 0.02;
 
 		$("#status").show();
 
@@ -460,7 +476,12 @@ class Robot {
 
 			var calibration_first_interval = setInterval(function() {
 
-				robot.actuate(-1, 1, 0.10);
+				// maintain 1 degree accuracy
+				maxVoltage = (robot.imu.mag - robot.prev.imu.mag > 0.017 ? maxVoltage - 0.001 : maxVoltage + 0.001);
+				if (maxVoltage < 0.01) maxVoltage = 0.01;
+				console.log(maxVoltage);
+
+				robot.actuate(-1, 1, maxVoltage);
 
 				// update sensor measurements
 				robot.sense();
@@ -503,34 +524,107 @@ class Robot {
 
 		}).then(function(angleAtLeastDistance) {
 
+			// measure least distance closely
+			return new Promise(function(resolve) {
+
+				var calibration_second_interval = setInterval(function() {
+
+					// go max speed until within 15 degrees of target
+					robot.actuate(-1, 1, (Math.abs(angleAtLeastDistance - robot.imu.mag) < 0.26 ? maxVoltage : 1));
+					robot.sense();
+					
+
+					if (robot.imu.mag > angleAtLeastDistance && robot.prev.imu.mag < angleAtLeastDistance) {
+						robot.actuate(0, 0, 0.0);
+						clearInterval(calibration_second_interval);
+						resolve(angleAtLeastDistance);
+					}
+
+				}, Robot.SENSE_PERIOD);
+
+
+			});
+
+		}).then(function(angleAtLeastDistance) {
+
+			return new Promise(function(resolve) {
+
+				var measurements = 0;
+				var front_measure_avg = 0;
+				var right_measure_avg = 0;
+
+				var measure_least_angle = setInterval(function() {
+
+					robot.sense();
+
+					front_measure_avg += robot.frontLaser.dist;
+					right_measure_avg += robot.rightLaser.dist;
+					measurements += 1;
+
+					if (measurements > 100) {
+						clearInterval(measure_least_angle);
+						front_measure_one = (front_measure_avg / measurements) + RobotFrame.FRONT_LASER.y;
+						right_measure_one = (right_measure_avg / measurements) + RobotFrame.RIGHT_LASER.x;
+						resolve(angleAtLeastDistance);
+					}
+
+				}, Robot.SENSE_PERIOD);
+
+			});
+
+		}).then(function(angleAtLeastDistance) {
+
 			var half_circle = reduceAngle(angleAtLeastDistance + Math.PI);
-			var epsilon = Math.PI;
 
 			// measure the opposite side of the least distance angle
 			return new Promise(function(resolve) {
 
 				var calibration_second_interval = setInterval(function() {
 
-					robot.actuate(-1, 1, 0.10);
+					// go max speed until within 15 degrees of target
+					robot.actuate(-1, 1, (Math.abs(half_circle - robot.imu.mag) < 0.26 ? maxVoltage : 1));
 					robot.sense();
-					epsilon = Math.abs(robot.imu.mag - half_circle);
+					
 
-					if (epsilon < 0.005) { // ~0.58deg tolerance
+					if (robot.imu.mag > half_circle && robot.prev.imu.mag < half_circle) {
 						robot.actuate(0, 0, 0.0);
 						clearInterval(calibration_second_interval);
-						resolve();
+						resolve(half_circle);
 					}
 
-				}, RobotState.CPU_PERIOD);
+				}, Robot.SENSE_PERIOD);
 
 
 			});
 
+		}).then(function(half_circle) {
+
+			return new Promise(function(resolve) {
+
+				var measurements = 0;
+				var front_measure_avg = 0;
+				var right_measure_avg = 0;
+
+				var measure_complementary_angle = setInterval(function() {
+
+					robot.sense();
+
+					front_measure_avg += robot.frontLaser.dist;
+					right_measure_avg += robot.rightLaser.dist;
+					measurements += 1;
+
+					if (measurements > 100) {
+						clearInterval(measure_complementary_angle);
+						front_measure_two = (front_measure_avg / measurements) + RobotFrame.FRONT_LASER.y;
+						right_measure_two = (right_measure_avg / measurements) + RobotFrame.RIGHT_LASER.x;
+						resolve();
+					}
+
+				}, Robot.SENSE_PERIOD);
+
+			});
+
 		}).then(function() {
-		
-			// turn to measure the other side
-			var front_measure_two = robot.frontLaser.dist + RobotFrame.FRONT_LASER.y;
-			var right_measure_two = robot.rightLaser.dist + RobotFrame.RIGHT_LASER.x;
 
 			// get complete field dimensions
 			var front_measure = front_measure_one + front_measure_two;
@@ -568,7 +662,7 @@ class Robot {
 
 			// try to orient 0deg along width of field
 			robot.state.theta = robot.imu.mag - robot.field.orient;
-			console.log("Orientation: ", robot.field.orient*180/Math.PI);
+			console.log(robot.state);
 
 			// hide notice on screen
 			$("#status").hide();
@@ -622,10 +716,12 @@ class Robot {
 
 
 	updateLeftSignal() {
+		this.prev.leftSignal = this.leftSignal;
 		return this.actual_state.leftSignal;
 	}
 
 	updateRightSignal() {
+		this.prev.rightSignal = this.rightSignal;
 		return this.actual_state.rightSignal;
 	}
 
@@ -638,18 +734,26 @@ class Robot {
 	}
 
 	updateFrontLaserRange() {
+		this.prev.frontLaser.dist = this.frontLaser.dist;
 		var robotState = this.actual_state;
 		return this.updateLaserRange(robotState.frontLaser.pos, robotState.state.theta);
 	}
 
 	updateRightLaserRange() {
+		this.prev.rightLaser.dist = this.rightLaser.dist;
 		var robotState = this.actual_state;
 		return this.updateLaserRange(robotState.rightLaser.pos, robotState.state.theta - Math.PI / 2);
 	}
 
 	updateMagnetometer() {
+		this.prev.imu.mag = this.imu.mag;
 		var theta = this.actual_state.state.theta;
 		return reduceAngle(theta - trueNorth);
+	}
+
+	updateGyroscope() {
+		this.prev.imu.gyro = this.imu.gyro;
+		return reduceAngle(this.actual_state.state.d_theta);
 	}
 
 
@@ -659,16 +763,19 @@ class Robot {
 	sense() {
 
 		// store input signals
-		this.leftSignal = addNoise(this.updateLeftSignal(), 0.05);
-		this.rightSignal = addNoise(this.updateRightSignal(), 0.05);
+		this.leftSignal = this.updateLeftSignal();
+		this.rightSignal = this.updateRightSignal();
 
 		// measure distance using lasers
 		this.frontLaser.dist = addNoise(this.updateFrontLaserRange(), 0.08);
 		this.rightLaser.dist = addNoise(this.updateRightLaserRange(), 0.08);
 		//console.log("Theta: ", theta*180/Math.PI, ", RDist: ", this.rightLaser.dist);
-
+	
 		// magnetometer should be calibrated and converted into an angle in robot's code
 		this.imu.mag = addNoise(this.updateMagnetometer(), 0.02);
+
+		// gyroscope in change of angle in sense period
+		this.imu.gyro = addNoise(this.updateGyroscope(), 0.02);
 
 	}
 
@@ -681,7 +788,7 @@ class Robot {
 		var ratio = this.intervals.reduce(add, 0) / this.actual_state.intervals.reduce(add, 0);
 
 		// average number of times cpu interval has run in one sense interval
-		return ratio * RobotState.MAX_CM_IN_CPU_PERIOD;
+		return ratio;
 
 	}
 
@@ -691,20 +798,20 @@ class Robot {
 		// maximum speed given
 		if (!cap) cap = 1.0;
 
+		// save previous values
+		this.prev.leftVoltageRatio = this.leftVoltageRatio;
+		this.prev.rightVoltageRatio = this.rightVoltageRatio;
+
 		// signals given
-		if (!leftSgn) leftSgn = this.leftSignal;
-		if (!rightSgn) rightSgn = this.rightSignal;
+		if (leftSgn) this.leftSignal = leftSgn;
+		if (rightSgn) this.rightSignal = rightSgn;
 
 		// accelerate using previous voltage and current signal
-		this.leftVoltageRatio = addNoise(this.accelerate(leftSgn, this.leftVoltageRatio, cap), 0.02);
-		this.rightVoltageRatio = addNoise(this.accelerate(rightSgn, this.rightVoltageRatio, cap), 0.02);
+		this.leftVoltageRatio = (leftSgn == 0 ? 0 : addNoise(this.accelerate(this.leftSignal, this.leftVoltageRatio, cap), 0.02));
+		this.rightVoltageRatio = (rightSgn == 0 ? 0 : addNoise(this.accelerate(this.rightSignal, this.rightVoltageRatio, cap), 0.02));
 
 		// pass to state
 		$("#robot").trigger("actuateEvent", [ this.leftVoltageRatio, this.rightVoltageRatio ]);
-
-		// update state estimation
-		this.state = RobotFrame.drive(this.state, this.leftVoltageRatio, this.rightVoltageRatio,
-																	this.fixSenseRatio());
 
 		// check position based on geometric properties of lasers and angle
 		var cons = this.constrain_position();
@@ -716,7 +823,112 @@ class Robot {
 	}
 
 
-	constrain_position(noiseRatio) {
+	estimate_state() {
+
+		var sense_times = this.fixSenseRatio();
+
+		// number of points to interpolate
+		var t = Math.round(sense_times);
+
+		// mean change in angular velocity measured by gyroscope
+		var d_theta_mean = (this.imu.gyro + this.prev.imu.gyro) / 2;
+
+		// difference in angle measured by the gyroscope
+		var d_theta_gyro = reduceAngle(d_theta_mean * sense_times);
+
+		// difference in angle measured by the magnetometer
+		var d_theta_mag = reduceAngle(this.imu.mag - this.prev.imu.mag);
+
+		// weighted average between magnetometer and gyroscope readings
+		var d_theta_avg = reduceAngle(0.3*d_theta_mag + 0.7*d_theta_gyro);
+		console.log("mag: ", d_theta_mag, " gyro: ", d_theta_gyro, " avg: ", d_theta_avg);
+
+		// angular step through each time slice
+		var d_theta_step = d_theta_avg / t;
+
+		// start at initial angle
+		var theta_i = this.state.theta;
+
+		// difference in voltage at the input
+		var d_voltage_left = this.leftVoltageRatio - this.prev.leftVoltageRatio;
+		var d_voltage_right = this.rightVoltageRatio - this.prev.rightVoltageRatio;
+		var dv_left_step = d_voltage_left / t;
+		var dv_right_step = d_voltage_right / t;
+		var voltage_left_i = this.prev.leftVoltageRatio;
+		var voltage_right_i = this.prev.rightVoltageRatio;
+		var d_voltage_left_avg = (this.leftVoltageRatio + this.prev.leftVoltageRatio) / 2;
+
+		// start and ending values at each step
+		var begin = {};
+		var end = {};
+		var turn_radius;
+		var rel_pos;
+		var center;
+		var d_state;
+		var new_pos;
+
+		// iterate through each interpolation point
+		for (var step = 0; step < t; step += 1) {
+
+			// save previous state
+			this.prev.state = this.state;
+
+			// save values at t
+			begin.theta = theta_i;
+			begin.voltage_left = voltage_left_i;
+			begin.voltage_right = voltage_right_i;
+
+			// angle of interpolation i
+			theta_i += d_theta_step;
+
+			// voltage at interpolation i
+			voltage_left_i += dv_left_step;
+			voltage_right_i += dv_right_step;
+
+			// save values at t+1
+			end.theta = reduceAngle(theta_i);
+			end.voltage_left = voltage_left_i;
+			end.voltage_right = voltage_right_i;
+
+			// arc angle around axis of rotation
+			turn_radius = (begin.voltage_left * RobotFrame.AXLE_LENGTH) / 
+										(begin.voltage_right - begin.voltage_left);
+			if (isNaN(turn_radius)) turn_radius = Infinity;
+
+			// set robot as axis of rotation to find position of rotation center
+			if (Math.abs(turn_radius) < sandboxWidthCm / 2) {
+				rel_pos = {x: -turn_radius - RobotFrame.AXLE_LENGTH / 2 , y: 0 };
+				center = RobotFrame.transform(rel_pos, this.prev.state);
+
+				// path travels along the perimeter of a circle, center is axis of rotation
+				rel_pos = {x: this.prev.state.x - center.x, y: this.prev.state.y - center.y };
+				d_state = {x: center.x, y: center.y, theta: d_theta_step };
+				new_pos = RobotFrame.transform(rel_pos, d_state);
+				this.state.theta += d_theta_step;
+				this.state.theta = reduceAngle(this.state.theta);
+			
+			// straight path
+			} else {
+
+				// set original state as axis of rotation
+				rel_pos = {x: 0, y: begin.voltage_left * RobotState.MAX_CM_IN_CPU_PERIOD * (sense_times / t)};
+				new_pos = RobotFrame.transform(rel_pos, this.prev.state);
+
+			}
+
+			// set intermediate state
+			this.state.x = new_pos.x;
+			this.state.y = new_pos.y;
+			//console.log(this.state);
+
+		}
+
+		//this.state.theta = this.imu.mag;
+
+	}
+
+
+	constrain_position() {
 
 		var epsilon = 0.03; // 3% error
 		var f = this.frontLaser.dist;
@@ -906,10 +1118,10 @@ class Robot {
 		}
 
 		// take into account possible noise
-		cons.x_min *= (1 - noiseRatio);
-		cons.x_max *= (1 + noiseRatio);
-		cons.y_min *= (1 - noiseRatio);
-		cons.y_max *= (1 + noiseRatio);
+		cons.x_min += 10;
+		cons.x_max += 10;
+		cons.y_min += 10;
+		cons.y_max += 10;
 
 		return cons;
 
