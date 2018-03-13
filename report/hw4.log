@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.18 (MiKTeX 2.9.6500 64-bit) (preloaded format=pdflatex 2018.1.28)  13 MAR 2018 15:35
+This is pdfTeX, Version 3.14159265-2.6-1.40.18 (MiKTeX 2.9.6500 64-bit) (preloaded format=pdflatex 2018.1.28)  13 MAR 2018 15:58
 entering extended mode
 **./hw4.tex
 (hw4.tex
@@ -448,20 +448,20 @@ Package pdftex.def Info: fig2.png  used on input line 429. on input line 429.
 Package pdftex.def Info: Requested size: 360.0pt x 270.01141pt on input line 42
 9.
  [12]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 442.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 448.
  [13 <./fig2.png>]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 442.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 448.
 
 (hw4.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 442.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 442.
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 448.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 448.
 Package rerunfilecheck Info: File `hw4.out' has not changed.
-(rerunfilecheck)             Checksum: 2F99A4414BFBFF752AD722C19A1C234D;601.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 442.
+(rerunfilecheck)             Checksum: 561BE417A34B4C34092DD41CBC424FCE;601.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 448.
  ) 
 Here is how much of TeX's memory you used:
  9227 strings out of 493312
- 137318 string characters out of 3138899
+ 137360 string characters out of 3138899
  251853 words of memory out of 3000000
  12580 multiletter control sequences out of 15000+200000
  11083 words of font info for 42 fonts, out of 3000000 for 9000
@@ -480,9 +480,9 @@ ram Files/MiKTeX 2.9/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Program File
 s/MiKTeX 2.9/fonts/type1/public/amsfonts/cm/cmsy8.pfb><C:/Program Files/MiKTeX 
 2.9/fonts/type1/public/amsfonts/cm/cmti10.pfb><C:/Program Files/MiKTeX 2.9/font
 s/type1/public/amsfonts/symbols/msam10.pfb>
-Output written on hw4.pdf (13 pages, 302273 bytes).
+Output written on hw4.pdf (13 pages, 303035 bytes).
 PDF statistics:
- 269 PDF objects out of 1000 (max. 8388607)
+ 271 PDF objects out of 1000 (max. 8388607)
  101 named destinations out of 1000 (max. 500000)
  112 words of extra memory for PDF output out of 10000 (max. 10000000)
 
