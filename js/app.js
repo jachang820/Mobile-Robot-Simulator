@@ -44,7 +44,7 @@ class MovingAverage {
 	set add(value) {
 		this.queue[this.pointer] = value;
 		this.pointer += 1;
-		if (this.pointer == this.queue.size) {
+		if (this.pointer == this.queue.length) {
 			this.pointer = 0;
 		}
 		this.lastRead = Date.now();
@@ -52,7 +52,7 @@ class MovingAverage {
 
 	get val() {
 		function add(a, b) { return a + b; }
-		return this.intervals.reduce(add, 0);
+		return this.queue.reduce(add, 0);
 	}
 
 	get last() {
@@ -210,7 +210,7 @@ class RobotState {
 
 		this.readState = function() {
 
-			robotState.intervals.add(Date.now() - robotState.intervals.last);
+			robotState.intervals.add = Date.now() - robotState.intervals.last;
 
 			// drive based on voltage input
 			robotState.state = robotState.drive(robotState.state, 
@@ -406,7 +406,7 @@ class Robot {
 		var robot = this;
 		this.readState = function() {
 
-			robot.intervals.add(Date.now() - robot.intervals.last);
+			robot.intervals.add = Date.now() - robot.intervals.last;
 
 			if (robot.calibrated) {
 
@@ -499,7 +499,7 @@ class Robot {
 				if (maxVoltage < 0.01) maxVoltage = 0.01;
 				
 				// go faster if entering an angle
-				robot.actuate(-1, 1, (robot.frontLaser.dist - 0.01 > robot.prev.frontLaser.dist ? 1 : maxVoltage));
+				robot.actuate(-1, 1, maxVoltage);
 
 				// update sensor measurements
 				robot.sense();
@@ -855,7 +855,6 @@ class Robot {
 
 		// weighted average between magnetometer and gyroscope readings
 		var d_theta_avg = reduceAngle(0.3*d_theta_mag + 0.7*d_theta_gyro);
-		console.log("mag: ", d_theta_mag, " gyro: ", d_theta_gyro, " avg: ", d_theta_avg);
 
 		// angular step through each time slice
 		var d_theta_step = d_theta_avg / t;

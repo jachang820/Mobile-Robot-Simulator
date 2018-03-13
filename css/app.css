@@ -2,6 +2,7 @@
 #sandbox {
 	border: solid 2px black;
 	position: absolute;
+	display: none;
 }
 
 #robot, #shadow {
@@ -11,6 +12,9 @@
 
 #shadow {
 	opacity: 0.5;
+}
+
+#robot {
 	display: none;
 }
 
