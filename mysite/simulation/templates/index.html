@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+{% load static %}
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<title>Robot Car Simulation</title>
-	<link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="{% static 'css/app.css' %">
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 </head>
 <body>
@@ -13,10 +14,10 @@
 	</nav>
 	<div id="sandbox">
 		<!-- where the simulation runs -->
-		<img src="robot.svg" id="robot">
-		<img src="robot.svg" id="shadow">
 
 	</div>
+	<img src="{% static 'robot.svg' %}" id="robot">
+	<img src="{% static 'robot.svg' %}" id="shadow">
 
 	<div id="options"> 
 		<!-- various parameters to be set -->
@@ -28,8 +29,12 @@
 		CALIBRATION
 	</div>
 
-	<div id="constraint">
-
-	<script src="js/app.js"></script>
+	<script src="{% static 'js/matrix.js' %}"></script>
+	<script src="{% static 'js/robot.js' %}"></script>
+	<script src="{% static 'js/interface.js' %}"></script>
+	<script src="{% static 'js/draw.js' %}"></script>
+	<script src="{% static 'js/sim.js' %}"></script>
+	<script src="{% static 'js/state.js' %}"></script>
+	<script src="{% static 'js/main.js' %}"></script>
 </body>
 </html>
